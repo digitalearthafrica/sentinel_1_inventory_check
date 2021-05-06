@@ -17,13 +17,15 @@ for path in paths:
     del_markers = {item['Key']: item['VersionId'] for item in resp['DeleteMarkers'] if item['IsLatest'] == True}
 
     for key, version in del_markers.items():
+        object = bucket.Object(key)
+        object.delete(VersionId=version)
+
         head = s3.head_object(Bucket=SOURCE_BUCKET, Key=key)
 
         replication_status = head.get("ReplicationStatus")
         if replication_status and replication_status != "COMPLETED":
             print(f"Replicating {key}")
-            object = bucket.Object(key)
-            object.delete(VersionId=version)
+            
             s3r.Object(SOURCE_BUCKET, key).copy_from(
                 CopySource=f'{SOURCE_BUCKET}/{key}',
                 MetadataDirective='REPLACE'
