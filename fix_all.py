@@ -14,21 +14,26 @@ paths = set(pd.read_csv("missing-data.txt").path)
 for path in paths:
     print(f"Working on {path}")
     resp = s3.list_object_versions(Bucket=SOURCE_BUCKET, Prefix=path)
-    del_markers = {item['Key']: item['VersionId'] for item in resp['DeleteMarkers'] if item['IsLatest'] == True}
+    try:
+        # All delete markers that are latest version, i.e., should be deleted
+        del_markers = {item['Key']: item['VersionId'] for item in resp['DeleteMarkers'] if item['IsLatest'] == True}
 
-    for key, version in del_markers.items():
-        object = bucket.Object(key)
-        object.delete(VersionId=version)
+        for key, version in del_markers.items():
+            object = bucket.Object(key)
+            object.delete(VersionId=version)
 
-        head = s3.head_object(Bucket=SOURCE_BUCKET, Key=key)
+            head = s3.head_object(Bucket=SOURCE_BUCKET, Key=key)
+            replication_status = head.get("ReplicationStatus")
 
-        replication_status = head.get("ReplicationStatus")
-        if replication_status and replication_status != "COMPLETED":
-            print(f"Replicating {key}")
-            
-            s3r.Object(SOURCE_BUCKET, key).copy_from(
-                CopySource=f'{SOURCE_BUCKET}/{key}',
-                MetadataDirective='REPLACE'
-            )
-        else:
-            print(f"Key is replicated: {key}")
+            if replication_status and replication_status != "COMPLETED":
+                print(f"Replicating {key}")
+
+                s3r.Object(SOURCE_BUCKET, key).copy_from(
+                    CopySource=f'{SOURCE_BUCKET}/{key}',
+                    MetadataDirective='REPLACE'
+                )
+            else:
+                print(f"Key is replicated: {key}")
+    except KeyError:
+        print(f"Keys has no DeleteMarkers for: {path}")
+        pass
