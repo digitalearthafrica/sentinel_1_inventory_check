@@ -3,13 +3,15 @@ from botocore.config import Config
 import pandas as pd
 
 SOURCE_BUCKET = "deafrica-sentinel-1-staging-frankfurt"
+FILE_NAME = os.getenv("FILE_NAME","missing-data.txt")
 
 my_config = Config(region_name='eu-central-1')
 s3 = boto3.client("s3", config=my_config)
 s3r = boto3.resource('s3', config=my_config)
 bucket = s3r.Bucket(SOURCE_BUCKET)
 
-paths = set(pd.read_csv("missing-data.txt").path)
+# TODO: Improvement - To process large csv file, use multithreading approach.
+paths = set(pd.read_csv(FILE_NAME).path)
 
 for path in paths:
     print(f"Working on {path}")
